@@ -126,6 +126,8 @@ One cool feature of ggfortify plots is that they follow the same graphics gramma
 
 
 ``` {r}
+#| label: fig-biplot
+#| fig-cap: There appears to be a distinct grouping of highly developed countries in the positive first component direction.
 
 autoplot(hdi_pca,
      	data = hdi_data,
@@ -141,4 +143,63 @@ autoplot(hdi_pca,
 
 # It's not perfect, but it's enough for now...
 ```
+
+
+## Tidymodels
+
+This is a quick add on to show how to work pca into tidymodels. The reason I didn't teach it this way was because I didn't want to explain what the difference between prepped and baked receipes. Also there's no easy way to extract pca rotations, loadings, or making biplots yet in tidymodels. Tidymodels is meant for preparing the data into use for more complicated ML algorithms. Like you would use the PC1 to be a branch in a random forest. 
+
+PCA is done all in the `receipes`.
+
+```{r}
+library(tidymodels)
+
+pca_rec<-recipe(~.,data=hdi_data_raw) |> 
+  update_role(iso3,new_role = 'id') |> 
+  step_naomit() |> 
+  step_normalize(all_numeric_predictors()) |>
+  step_pca(all_numeric_predictors())
+
+# prep the receipe (aka acutally run allthe steps)
+
+pca_prep<-prep(pca_rec)
+```
+
+
+Let's look at the top 5 most influential variables in the first 4 PCs.
+
+```{r}
+tidy_pca<-tidy(pca_prep,3)  # 3 because it's our 3rd step
+
+library(tidytext)
+
+tidy_pca |> 
+  filter(component %in% paste0("PC", 1:4)) |> 
+  group_by(component) |> 
+  top_n(5, abs(value)) |> 
+  ungroup() |> 
+  mutate(terms=reorder_within(terms, abs(value),component)) |> 
+  ggplot(aes(abs(value),terms,fill=value>0))+
+  geom_col()+
+  facet_wrap(~component, scales='free_y')+
+  scale_y_reordered()+
+  labs(
+    x='Absolute value of contribution',
+    y=NULL,
+    fill='Positive?'
+  )+
+  theme_minimal()
+```
+
+The inequality measures are the biggest drive of variation in the first principal component, but some are positive and negative. If we compare to our biplot in @fig-biplot this checks out. the longest vectors in the x direction are the inequality ones.
+
+I can easily plot the points by `juicing` the receipe, but I still have to manually create the loading vectors. Honestly it's a pain and we get the same answer as before.
+
+```{r}
+juice(pca_prep) |> 
+  ggplot(aes(PC1,PC2))+
+  geom_point(aes(color=hdicode),alpha=0.7,size=2)
+```
+
+Looks the same as above, just with different colors and without the loading vectors. Tidymodel PCAs are great for passing into more complicated models with the receipe framework, just not conducive if you want to focus on the pca itself.
 
