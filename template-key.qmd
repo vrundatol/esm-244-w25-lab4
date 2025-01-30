@@ -1,0 +1,144 @@
+---
+title: "ESM 244 Week 8: Principal Components Analysis Key"
+author: "Nathaniel Grimes"
+date: "2025-01-30"
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    toc: true
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+
+library(tidyverse)
+library(here)
+
+library(ggfortify) # For PCA biplot
+
+```
+
+# Principal components analysis (PCA)
+
+Principal components analysis is an ordination method allowing us to glean as much about our multivariate data as possible in a simplified number of dimensions.
+
+Here, we'll use [data from the Human Development Index](https://hdr.undp.org/data-center).  Quick overview of the HDI:
+
+> The Human Development Index (HDI) is a summary measure of average achievement in key dimensions of human development: a long and healthy life, being knowledgeable and having a decent standard of living. The HDI is the geometric mean of normalized indices for each of the three dimensions.
+
+> The health dimension is assessed by life expectancy at birth, the education dimension is measured by mean of years of schooling for adults aged 25 years and more and expected years of schooling for children of school entering age. The standard of living dimension is measured by gross national income per capita. The HDI uses the logarithm of income, to reflect the diminishing importance of income with increasing GNI. The scores for the three HDI dimension indices are then aggregated into a composite index using geometric mean. Refer to Technical notes for more details.
+
+
+Load in the data using `read_csv`. Perform some exploratory analysis on the data to get a better grasp of the structure. What do we need for pca to work? What variable needs to be transformed according to the information presented above?
+
+**PCA requires continuous numeric data with no NAs.  So we must drop categorical and character data, and exclude any rows with NAs.  We should also rescale so all numeric variables have a mean 0 and sd 1.**
+
+```{r}
+hdi_data_raw <- read_csv(here('data','hdi_clean.csv')) 
+
+# glimpse(hdi_data_raw)
+# summary(hdi_data_raw)
+
+hdi_data_long <- hdi_data_raw %>%
+  pivot_longer(names_to = 'name', values_to = 'value', where(is.numeric))
+
+ggplot(hdi_data_long, aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~ name, scales = 'free_x')
+```
+
+```{r}
+hdi_data <- hdi_data_raw %>%
+  drop_na() %>%
+  mutate(hdicode = factor(hdicode, levels = c('Low', 'Medium', 'High', 'Very High'))) %>%
+  mutate(gnipc_2021 = log(gnipc_2021))
+
+hdi_pca <- hdi_data %>% 
+  select(where(is.numeric)) %>%
+  # select(-iso3, -country, -hdicode)) %>%  other ways of doing the select
+  # select(ends_with('2021'), lat) %>%
+  prcomp(scale = TRUE)
+```
+
+
+Examine the structure of the hdi_pca object. What do you think each piece means? Use documentation to help you understand the output.
+
+* `sdev` is the standard deviation (square root of explained variance captured by each principal component)
+* `rotation` is the translation of base variables to principal components (and vice versa)
+* `center` is the factor applied for centering of the variables
+* `scale` is the factor for rescaling of the variables
+* `x` is a dataframe of all observations transformed to their new values in PC1, 2, etc.
+
+
+``` {r}
+# See the loadings (weighting for each principal component)
+hdi_pca$rotation
+```
+
+What can we say about the contributions of these variables to PC1, PC2, and PC3?
+
+## Scree Plots
+
+Let's make the screeplot by hand. First, what is the variable of interest on the y-axis and x-axis in a screeplot? How do we extract this information from the PCA object?
+
+Create a dataframe with the necessary indgreidents to make a screeplot. One piece that may not be immediately obvious is provided to get you started. We'll need to keep track of which PC is which, `colnames(hdi_pca$rotation)` will give you the order of the PCs.
+
+```{r}
+pc_names <- colnames(hdi_pca$rotation)
+sd_vec <- hdi_pca$sdev
+var_vec <- sd_vec^2 ### standard deviation is sqrt of variance!
+
+
+pct_expl_df <- data.frame(v = var_vec,
+                          pct_v = var_vec / sum(var_vec),
+                          pc = pc_names)
+
+# Screeplot
+ggplot(pct_expl_df, aes(x = pc, y = pct_v)) +
+  geom_col() +
+  labs(x = 'Principal component', y = 'Variance explained')+
+  scale_y_continuous(labels = scales::percent,expand = c(0,0))
+
+# Showing another way where we add the percentage explained as labels
+ggplot(pct_expl_df, aes(x = pc, y = v)) +
+  geom_col() +
+  geom_text(aes(label = scales::percent(pct_v)), vjust = 0, nudge_y = .002) +
+  labs(x = 'Principal component', y = 'Variance explained')
+```
+
+
+We can use ggfortify to create a screeplot as well.  This is a bit more automated, but less flexible. Great for diagnostics, but not for publication.
+
+```{r}
+# Variance explained by each PC
+screeplot(hdi_pca, type = "lines")
+screeplot(hdi_pca, type = "barplot")
+```
+
+## ggfortify autoplots
+
+Autoplot can take a PCA object the original dataframe, and plot the observations in the new PC space.  It can also plot the loadings of the variables. Run the code chunk first to see the biplot of HDI data.
+
+One cool feature of ggfortify plots is that they follow the same graphics grammar after the initial plot is created.  So you can add layers, change themes, etc. Clean up the biplot to make it more presentable. (Hint: use the data)
+
+
+``` {r}
+
+autoplot(hdi_pca,
+     	data = hdi_data,
+     	loadings = TRUE,
+     	colour = 'hdicode',
+     	loadings.label = TRUE,
+     	loadings.colour = "black",
+     	loadings.label.colour = "black",
+     	loadings.label.vjust = -0.5
+     	) +
+  scale_color_manual(values = c('red', 'orange', 'yellowgreen', 'darkgreen')) +
+  theme_minimal()
+
+# It's not perfect, but it's enough for now...
+```
+

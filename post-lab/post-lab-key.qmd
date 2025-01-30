@@ -1,0 +1,92 @@
+---
+title: "Post Lab: PCA Key"
+author: "Nathaniel Grimes"
+format: 
+  html:
+    code-fold: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## PCA on Soil characteristics
+
+Load in the data from the `grazing_env.csv` in the lab data folder. Use table 3 from this publication to understand the column labels.
+
+Which variables should you keep and which should you remove? What other checks do we need to do for our data?
+
+Reduce the dimmension of the data using PCA. How many components should you keep? What is the explained variance of the components? Describe the correlation between variables
+
+
+**Make a new quarto document to render your analysis. Save to results to your project and Stage, Commit, Push your final write up to Github**
+
+```{r}
+library(tidyverse)
+library(here)
+
+env<-read_csv(here("data", "grazing_env.csv"))
+```
+
+Exploratory analysis:
+
+```{r}
+env_long<- env %>%
+  pivot_longer(names_to = 'name', values_to = 'value', where(is.numeric))
+
+ggplot(env_long, aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~ name, scales = 'free_x')
+
+# calculate the variance of each variable
+env_long |> 
+  group_by(name) |> 
+  summarise(variance = var(value))
+
+# calculate the percentage of zero values in each column
+
+zeros<-env_long |> 
+  group_by(name) |> 
+  summarise(zero = sum(value == 0)/n())
+```
+
+
+
+Zeros are kind of werid in data. Couple of things we could do: 1) remove the features with lots of zeros. With 97% of data without block information it might be skewing the results. 2) We could log+1 transform the data especially if we believe a log normal distribution of data bounded by 0 makes sense as in the case of the concentrations. Though if we're going to do it to one concentration we should do it to all as well. This helps reduce skew.
+
+```{r}
+# mutate the chemical concentration data to log+1 in env
+
+env_log<- env |> 
+  mutate(across(c(16:25), ~log(. + 1))) |> 
+  select(-Blocks)
+```
+
+Run the PCA
+
+```{r}
+env_pca<- prcomp(env_log, center = TRUE, scale = TRUE)
+```
+
+
+Make the biplots and screeplots to help us understand the pca results.
+
+```{r}
+# biplot of env_pca from ggfortify
+
+library(ggfortify)
+
+autoplot(env_pca, 
+         data = env,
+         loadings=TRUE,
+         color='grey',
+         loadings.label=TRUE) +
+  theme_minimal()
+
+# screeplot
+
+screeplot(env_pca, type = 'lines')
+
+```
+
+It looks like the first 2 components explain about 33% of the variance. Decent, but not great. There a few interesting components in the biplot. First, the acidity of soil is highly correlated to to grazing intensity. It is unclear if it is making it more basic or acidic, but the fact that grazing intensity has a relationship with soil acidity could be because the grazing itself impacts the acidity, or the goats prefer a different acidity for grass.  

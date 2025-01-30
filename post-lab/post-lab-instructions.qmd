@@ -1,0 +1,23 @@
+---
+title: "Post Lab: PCA"
+author: "Nathaniel Grimes"
+format: 
+  html:
+    code-fold: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## PCA on Soil characteristics
+
+Load in the data from the `grazing_env.csv` in the lab data folder. [Use table 3 from this publication to understand the column labels](https://onlinelibrary-wiley-com.proxy.library.ucsb.edu/doi/epdf/10.1111/j.1654-1103.2011.01342.x) (Wesuls et al., 2012).
+
+Which variables should you keep and which should you remove? What other checks do we need to do for our data?
+
+Reduce the dimmension of the data using PCA. How many components should you keep? What is the explained variance of the components? Describe the correlation between variables
+
+
+**Make a new quarto document to render your analysis. Save to results to your project and Stage, Commit, Push your final write up to Github**
+

@@ -1,0 +1,119 @@
+---
+title: "Untitled"
+format: html
+execute:
+  eval: false
+---
+
+
+```{r setup}
+
+library(tidyverse)
+library(here)
+library(ggfortify) # For PCA biplot
+
+```
+
+# Principal components analysis (PCA)
+
+Principal components analysis is an ordination method allowing us to glean as much about our multivariate data as possible in a simplified number of dimensions.
+
+Here, we'll use [data from the Human Development Index](https://hdr.undp.org/data-center).  Quick overview of the HDI:
+
+> The Human Development Index (HDI) is a summary measure of average achievement in key dimensions of human development: a long and healthy life, being knowledgeable and having a decent standard of living. The HDI is the geometric mean of normalized indices for each of the three dimensions.
+
+> The health dimension is assessed by life expectancy at birth, the education dimension is measured by mean of years of schooling for adults aged 25 years and more and expected years of schooling for children of school entering age. The standard of living dimension is measured by gross national income per capita. The HDI uses the logarithm of income, to reflect the diminishing importance of income with increasing GNI. The scores for the three HDI dimension indices are then aggregated into a composite index using geometric mean. Refer to Technical notes for more details.
+
+
+Load in the data using `read_csv`. Perform some exploratory analysis on the data to get a better grasp of the structure. What do we need for pca to work? What variable needs to be transformed according to the information presented above?
+
+
+```{r}
+
+```
+
+
+
+Run the pca using the `prcomp` function. What extra argument do we need to include? Make sure to select only the numeric columns for the pca
+
+```{r}
+hdi_pca <- hdi_data %>% 
+  select(...) %>%
+  prcomp(...  )
+```
+
+
+Examine the structure of the hdi_pca object. What do you think each piece means? Use documentation to help you understand the output.
+
+
+
+
+
+
+
+
+
+``` {r}
+# See the loadings (weighting for each principal component)
+hdi_pca$rotation
+```
+
+What can we say about the contributions of these variables to PC1, PC2, and PC3?
+
+## Scree Plots
+
+Let's make the screeplot by hand. First, what is the variable of interest on the y-axis and x-axis in a screeplot? How do we extract this information from the PCA object?
+
+Create a dataframe with the necessary indgreidents to make a screeplot. One piece that may not be immediately obvious is provided to get you started. We'll need to keep track of which PC is which, `colnames(hdi_pca$rotation)` will give you the order of the PCs.
+
+```{r}
+pc_names <- colnames(hdi_pca$rotation)
+
+# Use this data frame to make the screeplot
+pct_expl_df <- data.frame(pc=pc_names,
+                          
+  
+  
+)
+
+# Screeplot
+
+
+
+```
+
+
+We can use ggfortify to create a screeplot as well.  This is a bit more automated, but less flexible. Great for diagnostics, but not for publication.
+
+```{r}
+# Variance explained by each PC
+screeplot(hdi_pca, type = "lines")
+screeplot(hdi_pca, type = "barplot")
+```
+
+## ggfortify autoplots
+
+Autoplot can take a PCA object the original dataframe, and plot the observations in the new PC space.  It can also plot the loadings of the variables. Run the code chunk first to see the biplot of HDI data.
+
+One cool feature of ggfortify plots is that they follow the same graphics grammar after the initial plot is created.  So you can add layers, change themes, etc. Clean up the biplot to make it more presentable. (Hint: use the data)
+
+
+``` {r}
+
+autoplot(hdi_pca,
+     	data = hdi_data,
+     	loadings = TRUE,
+     	colour = 'hdicode',
+     	loadings.label = TRUE,
+     	loadings.colour = "black",
+     	loadings.label.colour = "black",
+     	loadings.label.vjust = -0.5
+     	) +
+  scale_color_manual(values = c('red', 'orange', 'yellowgreen', 'darkgreen')) +
+  theme_minimal()
+
+# It's not perfect, but it's enough for now...
+```
+
+
+Complete the postlab exercise on your own. The data is stored in the data folder called `grazing_env.csv`.  The data is from a study on the effects of grazing on soil properties.  
