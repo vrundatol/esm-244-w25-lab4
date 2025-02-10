@@ -1,8 +1,15 @@
 ---
-title: "Untitled"
-format: html
+title: "PCA Lab"
+author: "Vrunda Tol"
+format: 
+  html: 
+    embed-resources: true
+    code-fold: show
+    toc: true
 execute:
-  eval: false
+  eval: true
+  message: false
+  warning: false
 ---
 
 
@@ -27,8 +34,46 @@ Here, we'll use [data from the Human Development Index](https://hdr.undp.org/dat
 
 Load in the data using `read_csv`. Perform some exploratory analysis on the data to get a better grasp of the structure. What do we need for pca to work? What variable needs to be transformed according to the information presented above?
 
+For PCA to work, we need the data to be numeric and drop NAs.
+Scale the data (take log of the income)
+Make the data tidy for all numeric variables
+Look at distribution of the data as a histogram
+Convert hdicode to factors and add levels with order
+
 
 ```{r}
+
+hdi_df <- read_csv(here("data", "hdi_clean.csv"))
+
+hdi_short <- hdi_df |>
+  select(iso3, country, hdicode, le_2021, eys_2021, gnipc_2021) |>
+  mutate(
+    hdicode = as.factor(hdicode)
+    
+  )
+
+hdi_df_long <- hdi_df |>
+  pivot_longer(names_to = "name", values_to = "value", where(is.numeric))
+
+m.1 <- lm(hdicode ~ le_2021, hdi_short)
+
+#summary(m.1)
+
+ggplot(hdi_short, aes(x = le_2021, y = eys_2021, colour = hdicode, size = gnipc_2021)) +
+  geom_point(alpha = 0.7) +
+  theme_bw()
+
+ggplot(hdi_df_long, aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~name, scales = 'free_x')
+
+hdi_data <- hdi_df |>
+  drop_na() |>
+  mutate(
+    gnipc_2021 = log(gnipc_2021),
+    hdicode = factor(hdicode, levels = c('Low', 'Medium', 'High', 'Very High'))
+  )
+
 
 ```
 
@@ -37,19 +82,24 @@ Load in the data using `read_csv`. Perform some exploratory analysis on the data
 Run the pca using the `prcomp` function. What extra argument do we need to include? Make sure to select only the numeric columns for the pca
 
 ```{r}
+
 hdi_pca <- hdi_data %>% 
-  select(...) %>%
-  prcomp(...  )
+  select(where(is.numeric)) %>%
+  prcomp(scale = TRUE)
+
+hdi_pca
+summary(hdi_pca)
+
 ```
 
 
 Examine the structure of the hdi_pca object. What do you think each piece means? Use documentation to help you understand the output.
 
+Standard deviation: Tells how much of the variance is explained by each PCI
 
+Rotation: Gives the coefficients of the eigenvector
 
-
-
-
+The first two PCs have a cumulative proportion of more than 80%
 
 
 
@@ -68,19 +118,32 @@ Create a dataframe with the necessary indgreidents to make a screeplot. One piec
 
 ```{r}
 pc_names <- colnames(hdi_pca$rotation)
+sd_vec <- hdi_pca$sdev
+var_vec <- sd_vec^2
+
+pct_v <- var_vec/sum(var_vec)
+
+# can also get this from the summary output 
 
 # Use this data frame to make the screeplot
-pct_expl_df <- data.frame(pc=pc_names,
-                          
-  
-  
-)
+pct_expl_df <- data.frame(pc=pc_names, pct_var = pct_v)
 
 # Screeplot
 
+ggplot(pct_expl_df, aes(x = pc_names, y = pct_var)) +
+  geom_col() +
+  theme_bw() +
+  labs(
+    title = "Scree Plot for HDI Data",
+    x = "Principle Component",
+    y = "% of variance explained by the PC"
+  ) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent)
 
 
 ```
+
+Most of the variance is explained by PC1.
 
 
 We can use ggfortify to create a screeplot as well.  This is a bit more automated, but less flexible. Great for diagnostics, but not for publication.
@@ -114,6 +177,10 @@ autoplot(hdi_pca,
 
 # It's not perfect, but it's enough for now...
 ```
+
+Income inequality and life expectancy are dominant for the low HDI code countries.
+There is more variation in PC2 as we move to the right side of PC1.
+So much of the variance is captured by income and inequality!
 
 
 Complete the postlab exercise on your own. The data is stored in the data folder called `grazing_env.csv`.  The data is from a study on the effects of grazing on soil properties.  
